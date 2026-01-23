@@ -308,11 +308,16 @@ class JSONViewer:
             self.search_frame.grid_remove()  # Скрыть
 
     def export_table_to_excel(self):
-        """
-        Экспортирует ВСЕ строки из таблицы в Excel-файл.
-        Файл сохраняется в папке загрузки с именем: export_YYYYMMDD_HHMMSS.xlsx
-        """
-        # Получаем все строки из Treeview
+        """Экспортирует данные в Excel с учётом типа отображения."""
+        file_type = self.file_type_var.get()
+
+        if file_type == "autoconnect_analysis":
+            self._export_autoconnect_analysis_to_excel()
+        else:
+            self._export_standard_table_to_excel()
+
+    def _export_standard_table_to_excel(self):
+        """Стандартный экспорт для плоских таблиц."""
         all_items = self.tree.get_children()
         if not all_items:
             messagebox.showinfo("Информация", "Таблица пуста")
@@ -324,45 +329,83 @@ class JSONViewer:
         filepath = os.path.join(self.export_dir, filename)
 
         try:
-            # Создаём новую рабочую книгу
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Данные"
 
-            # Заголовки колонок
             headers = [self.tree.heading(col, option="text") for col in self.tree["columns"]]
             ws.append(headers)
 
-            # Данные всех строк
             for item_id in all_items:
                 values = self.tree.item(item_id, "values")
                 ws.append(list(values))
 
-            # Стили
-            bold_font = Font(bold=True)
-            center_alignment = Alignment(horizontal='center')
-
-            # Применяем стиль к заголовкам
-            for cell in ws[1]:
-                cell.font = bold_font
-                cell.alignment = center_alignment
-
-            # Автоподбор ширины колонок
-            for col_num, column_cells in enumerate(ws.columns, 1):
-                max_length = 0
-                for cell in column_cells:
-                    if cell.value:
-                        max_length = max(max_length, len(str(cell.value)))
-                adjusted_width = (max_length + 2)
-                ws.column_dimensions[openpyxl.utils.get_column_letter(col_num)].width = adjusted_width
-
-            # Сохраняем файл
+            self._apply_excel_styles(wb)
             wb.save(filepath)
-
             messagebox.showinfo("Успешно", f"Файл сохранён:\n{filepath}")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось экспортировать в Excel:\n{e}")
+
+    def _export_autoconnect_analysis_to_excel(self):
+        """Специальный экспорт для анализа автоконнектов с группировкой по SN."""
+        all_items = self.tree.get_children()
+        if not all_items:
+            messagebox.showinfo("Информация", "Таблица пуста")
+            return
+
+        # Формируем имя файла
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"export_autoconnect_{timestamp}.xlsx"
+        filepath = os.path.join(self.export_dir, filename)
+
+        try:
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Анализ автоконнектов"
+
+            # Заголовки (включая колонку SN)
+            headers = ["Счётчик (SN)", "Получено", "IP", "Порт", "Валидация"]
+            ws.append(headers)
+
+            for parent_id in all_items:
+                sn = self.tree.item(parent_id, "text")
+                # Получаем все дочерние элементы
+                child_items = self.tree.get_children(parent_id)
+                if not child_items:
+                    # Если нет дочерних элементов, добавляем пустую строку
+                    ws.append([sn, "", "", "", ""])
+                else:
+                    for child_id in child_items:
+                        values = self.tree.item(child_id, "values")
+                        # values содержит: (received_at, ip, port, validation)
+                        row = [sn] + list(values)
+                        ws.append(row)
+
+            self._apply_excel_styles(wb)
+            wb.save(filepath)
+            messagebox.showinfo("Успешно", f"Файл сохранён:\n{filepath}")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось экспортировать в Excel:\n{e}")
+
+    def _apply_excel_styles(self, wb):
+        """Применяет стили к Excel-файлу."""
+        ws = wb.active
+        bold_font = Font(bold=True)
+        center_alignment = Alignment(horizontal='center')
+
+        for cell in ws[1]:
+            cell.font = bold_font
+            cell.alignment = center_alignment
+
+        for col_num, column_cells in enumerate(ws.columns, 1):
+            max_length = 0
+            for cell in column_cells:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            adjusted_width = min(max_length + 2, 50)  # Ограничиваем ширину
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col_num)].width = adjusted_width
 
     def select_export_directory(self):
         """Открывает диалог выбора папки для экспорта Excel-файлов."""
