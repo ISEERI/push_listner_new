@@ -463,7 +463,7 @@ class JSONViewer:
             ip = entry.get("ip", "")
             port = entry.get("port", "")
             text.insert("1.0", f"Получено: {received_at}\nSN: {sn}\nIP: {ip}\nПорт: {port}")
-        elif file_type == "dlms_day_push":
+        elif file_type == "dlms_schedule_push":
             # Отображение day-push с валидацией профиля
             received_at = _format_datetime(entry.get("received_at", ""))
             invoke_id = entry.get("invoke_id", "")
@@ -600,7 +600,7 @@ class JSONViewer:
             display = AutoConnectDisplay(self.tree, self.parent)
         elif file_type == "autoconnect_analysis":
             display = AutoConnectAnalysisDisplay(self.tree, self.parent)
-        elif file_type == "dlms_day_push":
+        elif file_type == "dlms_schedule_push":
             display = DayPushDisplay(self.tree, self.parent)
         else:  # dlms_push
             display = json_viewer_tables.obis_push.ObisPushDisplay(self.tree, self.parent)

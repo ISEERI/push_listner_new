@@ -429,7 +429,7 @@ def get_current_json_filename(output_dir: str = ".") -> str:
 
 def get_current_day_json_filename(output_dir: str = ".") -> str:
     """Генерирует полный путь к файлу dlms_day_push_YYYY-MM-DD.json."""
-    filename = f"dlms_day_push_{datetime.now().strftime('%Y-%m-%d')}.json"
+    filename = f"dlms_schedule_push_{datetime.now().strftime('%Y-%m-%d')}.json"
     return os.path.join(output_dir, filename)
 
 
