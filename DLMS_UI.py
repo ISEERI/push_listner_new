@@ -16,7 +16,7 @@ class DLMSApp:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Push Listner")
+        self.root.title("Push Listener")
         self.root.geometry("1280x720")
 
         # Загрузка конфигурации
@@ -160,6 +160,19 @@ class DLMSApp:
         if address:
             prefix = f"[{address[0]}:{address[1]}] "
         full_message = prefix + message + "\n"
+
+        # Проверка количества строк перед добавлением
+        current_line_count = int(self.log_text.index('end-1c').split('.')[0])
+        if current_line_count >= 10000:
+            # Очищаем журнал, оставляя последние 1000 строк для контекста
+            all_lines = self.log_text.get('1.0', 'end-1c').split('\n')
+            if len(all_lines) > 1000:
+                keep_lines = all_lines[-1000:]  # Последние 1000 строк
+                self.log_text.delete('1.0', 'end')
+                self.log_text.insert('1.0', '\n'.join(keep_lines) + '\n')
+                # Добавляем уведомление об очистке
+                self.log_text.insert('end', "[!] Журнал очищен: сохранены последние 1000 строк\n")
+                self.log_text.tag_add("error", "end-2l", "end-1c")  # Подсветка уведомления
 
         start_idx = self.log_text.index("end-1c")
         self.log_text.insert(tk.END, full_message)
