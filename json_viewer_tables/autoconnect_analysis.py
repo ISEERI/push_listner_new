@@ -93,8 +93,8 @@ class AutoConnectAnalysisDisplay(BaseDisplay):
                     # Ожидаемый интервал: 12 часов = 43200 секунд
                     expected_sec = 12 * 3600  # 43200
                     actual_sec = abs(delta.total_seconds())
-                    # Допуск: ±1 минута = ±60 секунд
-                    if not (expected_sec - 60 <= actual_sec <= expected_sec + 60):
+                    # Допуск: ±10 минут = ±600 секунд
+                    if not (expected_sec - 600 <= actual_sec <= expected_sec + 600):
                         validation = "❌"
 
                 # Форматирование данных для отображения
