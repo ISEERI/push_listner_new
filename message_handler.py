@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from typing import Callable
 
-from gurux_dlms import GXByteBuffer
+from gurux_dlms import GXByteBuffer, _GXFCS16
 from DLMS_Parser import hdlc_to_enhanced_xml, extract_dlms_request_info, bytes_to_hex_str
 from utils import calculate_fcs
 
@@ -84,7 +84,11 @@ class MessageProcessor:
 
             # Извлечение адресной информации
             your_addr = raw_data[3:4]
-            meter_addr = raw_data[4:8]
+            if re.search(r'<SourceAddress\s+Value="([0-9A-Fa-f]{2})">', xml_output):
+                meter_addr = raw_data[4:6]
+            else:
+                meter_addr = raw_data[4:8]
+
             self.logger(f"[✓]{port_info} Ваш адрес: {bytes_to_hex_str(your_addr)}")
             self.logger(f"[✓]{port_info} Адрес счётчика: {bytes_to_hex_str(meter_addr)}")
 
@@ -147,8 +151,8 @@ class MessageProcessor:
             information_field = fixed_prefix + llc + pdu_response
 
             length = len(address_field + information_field) + 6
-            fcs_handler = calculate_fcs(control_byte + bytes([length]) + address_field + fixed_prefix).to_bytes(2,
-                                                                                                                'big')
+            header_fcs = control_byte + bytes([length]) + address_field + fixed_prefix
+            fcs_handler = _GXFCS16.countFCS16(header_fcs, 0, len(header_fcs)).to_bytes(2,'big')
             payload = address_field + fixed_prefix + fcs_handler + llc + pdu_response
 
             data_for_fcs = control_byte + bytes([length]) + payload
