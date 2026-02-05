@@ -1,5 +1,6 @@
 # DLMS_UI.py
 import re
+import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 from JSON_Viewer import JSONViewer
@@ -9,6 +10,8 @@ from config_manager import ConfigManager
 from data_handler import DataSaver
 from log_manager import LogManager
 import os
+import pystray
+from PIL import Image, ImageDraw
 
 
 class DLMSApp:
@@ -18,12 +21,22 @@ class DLMSApp:
         self.root = root
         self.root.title("Push Listener")
         self.root.geometry("1280x720")
+        self.root.iconphoto(True, tk.PhotoImage(file="PushListener.png"))
 
         # Загрузка конфигурации
         self.config_manager = ConfigManager()
         config = self.config_manager.load()
         self.save_data_dir = config["save_data_dir"]
         self.load_data_dir = config["load_data_dir"]
+
+        # Флаг для управления работой в фоне
+        self.running = True
+
+        # Создаём иконку в трее
+        self.setup_tray_icon()
+
+        # Перехватываем закрытие окна
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close_window)
 
         # Инициализация компонентов
         self.data_saver = DataSaver(self.save_data_dir)
@@ -56,6 +69,73 @@ class DLMSApp:
         self.json_viewer.set_load_directory(self.load_data_dir)
 
         self.logging_enabled = True
+
+    def create_image(self):
+        """Загружает пользовательскую иконку из файла."""
+        try:
+            # Попробуем загрузить PNG
+            return Image.open("PushListener.png")
+        except FileNotFoundError:
+            try:
+                # Или ICO
+                return Image.open("PushListener.ico")
+            except FileNotFoundError:
+                # Если иконка не найдена — создаём запасную
+                width, height = 64, 64
+                image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+                dc = ImageDraw.Draw(image)
+                dc.rectangle((16, 16, 48, 48), fill=(0, 120, 215, 255))  # Синий квадрат
+                return image
+
+    def setup_tray_icon(self):
+        """Настраивает иконку в системном трее."""
+        image = self.create_image()
+        menu = (
+            pystray.MenuItem("Показать", self.show_window),
+            pystray.MenuItem("Выход", self.quit_app)
+        )
+        self.icon = pystray.Icon("DLMS_Listener", image, "DLMS Push Listener", menu)
+
+        # Запускаем иконку в отдельном потоке
+        self.tray_thread = threading.Thread(target=self.icon.run, daemon=True)
+        self.tray_thread.start()
+
+    def show_window(self, icon=None, item=None):
+        """Показывает главное окно."""
+        self.root.deiconify()  # Восстанавливает окно
+        self.root.lift()  # Поднимает поверх других окон
+        self.root.focus_force()  # Делает активным
+
+    def on_close_window(self):
+        """Обработчик закрытия окна — сворачивает в трей."""
+        self.root.withdraw()  # Скрывает окно
+        # Опционально: показываем уведомление
+        if hasattr(self, 'icon'):
+            self.icon.notify("Программа работает в фоне", "DLMS Push Listener")
+
+    def quit_app(self, icon=None, item=None):
+        """Полностью завершает приложение."""
+        self.running = False
+        self.stop_all()  # Останавливаем серверы
+
+        # Сохраняем конфигурацию через config_manager
+        config = {
+            "save_data_dir": self.save_data_dir,
+            "load_data_dir": self.load_data_dir,
+        }
+        self.config_manager.save(config)
+
+        # Закрываем иконку трея
+        if hasattr(self, 'icon'):
+            self.icon.stop()
+
+        # Закрываем главное окно
+        self.root.quit()
+        self.root.destroy()
+
+    def on_close(self):
+        """Вызывается при закрытии (уже не используется напрямую)."""
+        pass  # Теперь управление через tray
 
     def on_json_viewer_load_dir_change(self, new_dir):
         """Обновляет путь загрузки при изменении в JSONViewer."""
