@@ -76,7 +76,7 @@ def classify_day_push_entry(entry: Dict[str, Any]) -> str:
     if not data:
         return "unknown"
     first_values = data[0].get("values", [])
-    if len(first_values) == 20:
+    if len(first_values) == 20 or len(first_values) == 36:
         return "daily"
     elif len(first_values) == 4:
         return "half_hourly"
